@@ -15,9 +15,9 @@
 
 #include "jWrite.h"
 
-//#include <stdint.h>			// definintion of uint32_t, int32_t
-typedef unsigned int uint32_t;
-typedef int int32_t;
+#include <stdint.h>			// definintion of uint32_t, int32_t
+//typedef unsigned int uint32_t;
+//typedef int int32_t;
 
 
 // the jWrite functions take the above jWriteControl structure pointer

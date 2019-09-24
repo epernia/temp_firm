@@ -44,6 +44,12 @@ extern "C" {
 #define MAX_SYNC_RETRY      10
 
 /**
+ * Specifies the time before starts sending commands.
+ */
+#define INIT_DELAY     RKH_TIME_MS(10)
+
+
+/**
  * Specifies time waiting for GSM modem network registration.
  */
 #define CHECK_REG_PERIOD   RKH_TIME_MS(2000)
@@ -134,6 +140,11 @@ extern "C" {
 #define PERSONAL_APN_ADDR       "datos.personal.com"
 #define PERSONAL_APN_USER       "datos"
 #define PERSONAL_APN_PASS       "datos"
+
+#define TUENTI_OPERATOR       	"72201"
+#define TUENTI_APN_ADDR       	"internet.movil"
+#define TUENTI_APN_USER       	"internet"
+#define TUENTI_APN_PASS       	"internet"
 
 /* .................................. SIM PIN .............................. */
 #define SIM_PIN_NUMBER          9474

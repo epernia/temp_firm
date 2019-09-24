@@ -451,9 +451,13 @@ publish(MQTTProt *const me, RKH_EVT_T *pe)
 static void 
 initRecvAll(SyncRegion *const me, RKH_EVT_T *pe)
 {
+	(void) me;
+	(void) pe;
+/*  variable realMe set but not used
     MQTTProt *realMe;
 
     realMe = me->itsMQTTProt;
+*/
     mqtt_initRecvAll();
 }
 
@@ -548,8 +552,8 @@ initSendAll(SyncRegion *const me, RKH_EVT_T *pe)
 static void 
 initSendOk(SyncRegion *const me, RKH_EVT_T *pe)
 {
-    (void *)me;
-    (void *)pe;
+    (void) me;
+    (void) pe;
 }
 
 static void 

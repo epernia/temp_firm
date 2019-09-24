@@ -29,13 +29,19 @@
 /* ---------------------------- Local data types --------------------------- */
 /* ---------------------------- Global variables --------------------------- */
 /* ---------------------------- Local variables ---------------------------- */
+
+static void(* const actions_10[])( void ) =
+{
+	dIn_scan,
+    NULL
+};
+
 static void(* const actions_100[])( void ) =
 {
 #ifdef MODPWR_CTRL_ENABLE
 	modPwr_ctrl, 
 #endif
     epoch_updateByStep,
-    dIn_scan,
     NULL
 };
 
@@ -53,6 +59,7 @@ static void(* const actions_10000[])( void ) =
 
 const timerChain_t timerChain[] =
 {
+	{ MTIME_DIN_PERIOD, actions_10 },
 	{ MTIME_EPOCH_UPD_PERIOD, actions_100 },
 	{ MTIME_ANIN_READANDFILTER_PERIOD, actions_1000 },
 	{ MTIME_ANSAMPLE_PUT_PERIOD, actions_10000 }

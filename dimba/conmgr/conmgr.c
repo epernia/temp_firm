@@ -36,7 +36,7 @@
 typedef struct ConMgr ConMgr;
 
 /* ................... Declares states and pseudostates .................... */
-RKH_DCLR_BASIC_STATE ConMgr_inactive, ConMgr_sync,
+RKH_DCLR_BASIC_STATE ConMgr_inactive, ConMgr_sync, ConMgr_InitDelay,
                 ConMgr_init, ConMgr_pin, ConMgr_setPin, ConMgr_enableNetTime,
                 ConMgr_getImei, ConMgr_cipShutdown, ConMgr_setManualGet,
                 ConMgr_waitReg, ConMgr_unregistered, ConMgr_failure,
@@ -89,6 +89,7 @@ static void tryGetStatus(ConMgr *const me, RKH_EVT_T *pe);
 /* ......................... Declares entry actions ........................ */
 static void sendSync(ConMgr *const me);
 static void sendInit(ConMgr *const me);
+static void InitDelayEntry(ConMgr *const me);
 static void checkPin(ConMgr *const me);
 static void setPin(ConMgr *const me);
 static void netTimeEnable(ConMgr *const me);
@@ -113,6 +114,7 @@ static void idleEntry(ConMgr *const me);
 
 /* ......................... Declares exit actions ......................... */
 static void unregExit(ConMgr *const me);
+static void InitDelayExit(ConMgr *const me);
 static void regExit(ConMgr *const me);
 static void waitNetClockSyncExit(ConMgr *const me);
 static void wReopenExit(ConMgr *const me);
@@ -169,9 +171,24 @@ RKH_CREATE_BRANCH_TABLE(ConMgr_checkSyncTry)
     RKH_BRANCH(ELSE,           NULL,   &ConMgr_failure),
 RKH_END_BRANCH_TABLE
 
+RKH_CREATE_BASIC_STATE(ConMgr_waitNetClockSync,
+                            waitNetClockSyncEntry, waitNetClockSyncExit,
+                            &ConMgr_initialize, NULL);
+RKH_CREATE_TRANS_TABLE(ConMgr_waitNetClockSync)
+    RKH_TRREG(evTimeout,       NULL, NULL, &ConMgr_pin),
+    RKH_TRREG(evNetClockSync,  NULL, localTimeGet, &ConMgr_localTime),
+RKH_END_TRANS_TABLE
+
+RKH_CREATE_BASIC_STATE(ConMgr_localTime, NULL, NULL, &ConMgr_initialize, NULL);
+RKH_CREATE_TRANS_TABLE(ConMgr_localTime)
+    RKH_TRREG(evLocalTime,     NULL, rtimeSync,  &ConMgr_pin),
+	RKH_TRREG(evNoResponse,    NULL, NULL,       &ConMgr_pin),
+    //RKH_TRREG(evTimeout,    NULL, NULL,       &ConMgr_pin),
+RKH_END_TRANS_TABLE
+
 RKH_CREATE_BASIC_STATE(ConMgr_init, sendInit, NULL, &ConMgr_initialize, NULL);
 RKH_CREATE_TRANS_TABLE(ConMgr_init)
-    RKH_TRREG(evOk,         NULL, NULL, &ConMgr_pin),
+    RKH_TRREG(evOk,         NULL, NULL, &ConMgr_waitNetClockSync),
 RKH_END_TRANS_TABLE
 
 RKH_CREATE_BASIC_STATE(ConMgr_pin, checkPin, NULL, &ConMgr_initialize, NULL);
@@ -209,7 +226,7 @@ RKH_CREATE_TRANS_TABLE(ConMgr_setManualGet)
 RKH_END_TRANS_TABLE
 
 RKH_CREATE_COMP_REGION_STATE(ConMgr_registered, regEntry, regExit, &ConMgr_active, 
-                             &ConMgr_waitNetClockSync, NULL,
+                             &ConMgr_InitDelay, NULL,
                              RKH_NO_HISTORY, NULL, NULL, NULL, NULL);
 RKH_CREATE_TRANS_TABLE(ConMgr_registered)
     RKH_TRREG(evNoReg, NULL, NULL,   &ConMgr_unregistered),
@@ -229,18 +246,9 @@ RKH_CREATE_TRANS_TABLE(ConMgr_failure)
     RKH_TRREG(evTimeout, NULL,  NULL, &ConMgr_active),
 RKH_END_TRANS_TABLE
 
-RKH_CREATE_BASIC_STATE(ConMgr_waitNetClockSync, 
-                            waitNetClockSyncEntry, waitNetClockSyncExit,
-                            &ConMgr_registered, NULL);
-RKH_CREATE_TRANS_TABLE(ConMgr_waitNetClockSync)
-    RKH_TRREG(evTimeout,       NULL, NULL, &ConMgr_getOper),
-    RKH_TRREG(evNetClockSync,  NULL, localTimeGet, &ConMgr_localTime),
-RKH_END_TRANS_TABLE
-
-RKH_CREATE_BASIC_STATE(ConMgr_localTime, NULL, NULL, &ConMgr_registered, NULL);
-RKH_CREATE_TRANS_TABLE(ConMgr_localTime)
-    RKH_TRREG(evLocalTime,     NULL, rtimeSync,  &ConMgr_getOper),
-    RKH_TRREG(evNoResponse,    NULL, NULL,       &ConMgr_getOper),
+RKH_CREATE_BASIC_STATE(ConMgr_InitDelay, InitDelayEntry, InitDelayExit, &ConMgr_registered, NULL);
+RKH_CREATE_TRANS_TABLE(ConMgr_InitDelay)
+    RKH_TRREG(evTimeout, NULL,  NULL, &ConMgr_getOper),
 RKH_END_TRANS_TABLE
 
 RKH_CREATE_HISTORY_STORAGE(ConMgr_configure);
@@ -463,6 +471,9 @@ static Operator operTable[] =
     { PERSONAL_OPERATOR, 
         { PERSONAL_APN_ADDR, PERSONAL_APN_USER, PERSONAL_APN_PASS } 
     },
+    { TUENTI_OPERATOR,
+        { TUENTI_APN_ADDR, TUENTI_APN_USER, TUENTI_APN_PASS }
+    },
     { NULL }
 };
 
@@ -499,6 +510,7 @@ init(ConMgr *const me, RKH_EVT_T *pe)
     RKH_TR_FWK_STATE(me, &ConMgr_sync);
     RKH_TR_FWK_STATE(me, &ConMgr_checkSyncTry);
 	RKH_TR_FWK_STATE(me, &ConMgr_init);
+	RKH_TR_FWK_STATE(me, &ConMgr_InitDelay);
     RKH_TR_FWK_STATE(me, &ConMgr_pin);
     RKH_TR_FWK_STATE(me, &ConMgr_setPin);
     RKH_TR_FWK_STATE(me, &ConMgr_enableNetTime);
@@ -911,6 +923,13 @@ failureEntry(ConMgr *const me)
 }
 
 static void
+InitDelayEntry(ConMgr *const me)
+{
+    RKH_SET_STATIC_EVENT(&e_tout, evTimeout);
+    RKH_TMR_ONESHOT(&me->timer, RKH_UPCAST(RKH_SMA_T, me), INIT_DELAY);
+}
+
+static void
 waitRetryConfigEntry(ConMgr *const me)
 {
     RKH_SET_STATIC_EVENT(&e_tout, evTimeout);
@@ -1046,6 +1065,14 @@ failureExit(ConMgr *const me)
 
     modPwr_on();
     ModCmd_init();
+    rkh_tmr_stop(&me->timer);
+}
+
+static void
+InitDelayExit(ConMgr *const me)
+{
+    (void)me;
+
     rkh_tmr_stop(&me->timer);
 }
 

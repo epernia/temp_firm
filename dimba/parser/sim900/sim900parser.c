@@ -126,7 +126,7 @@ SSP_CREATE_BR_TABLE(rootCmdParser)
 	SSPBR("CONNECT OK", NULL,     &rootCmdParser),
 	SSPBR("AT",         NULL,     &at),
 	SSPBR("+C",         NULL,     &plus_c),
-	SSPBR("*PSUTTZ",    isURC_set, &netClockSync),
+	SSPBR("*PSUTTZ",    NULL, &netClockSync),//isURC_set, &netClockSync),
 SSP_END_BR_TABLE
 
 SSP_CREATE_NORMAL_NODE(at);
@@ -138,7 +138,11 @@ SSP_END_BR_TABLE
 
 SSP_CREATE_NORMAL_NODE(at_plus);
 SSP_CREATE_BR_TABLE(at_plus)
+#ifdef SIM800
+	SSPBR("GSN\r\n", imeiInit,  &at_plus_gsn),
+#else
 	SSPBR("GSN\r\n\r\n", imeiInit,  &at_plus_gsn),
+#endif
 	SSPBR("C",           NULL,      &at_plus_c),
 	SSPBR("OK\r\n",     cmd_ok,    &rootCmdParser),
 SSP_END_BR_TABLE
@@ -146,7 +150,11 @@ SSP_END_BR_TABLE
 SSP_CREATE_NORMAL_NODE(at_plus_c);
 SSP_CREATE_BR_TABLE(at_plus_c)
 	SSPBR("PIN",                NULL,   &at_plus_cpin),
+#ifdef SIM800
+	SSPBR("REG?;+CSQ\r\n",  NULL,   &at_plus_creg),
+#else
 	SSPBR("REG?;+CSQ\r\n\r\n",  NULL,   &at_plus_creg),
+#endif
 	SSPBR("STT=",           NULL,   &waitOK),
 	SSPBR("I",              NULL,   &at_plus_ci),
 	SSPBR("LTS=1",          NULL,   &waitOK),
@@ -190,7 +198,11 @@ SSP_END_BR_TABLE
 /* ---------------------------- AT+CPIN --------------------------- */
 SSP_CREATE_NORMAL_NODE(at_plus_cpin);
 SSP_CREATE_BR_TABLE(at_plus_cpin)
+#ifdef SIM800
+	SSPBR("?\r\n",    NULL,  &pinStatus),
+#else
 	SSPBR("?\r\n\r\n",    NULL,  &pinStatus),
+#endif
 	SSPBR("=",            NULL,  &wpinSet),
 	SSPBR("\r\n",         NULL,  &rootCmdParser),
 SSP_END_BR_TABLE
@@ -205,7 +217,11 @@ SSP_END_BR_TABLE
 
 SSP_CREATE_NORMAL_NODE(wpinSet);
 SSP_CREATE_BR_TABLE(wpinSet)
+#ifdef SIM800
+	SSPBR("\r\n",   NULL,   &pinSet),
+#else
 	SSPBR("\r\n\r\n",   NULL,   &pinSet),
+#endif
 SSP_END_BR_TABLE
 
 SSP_CREATE_NORMAL_NODE(pinSet);
@@ -279,7 +295,11 @@ SSP_END_BR_TABLE
 /* ------------------------ AT+CIPRXGET -------------------------- */
 SSP_CREATE_NORMAL_NODE(at_plus_ciprxget);
 SSP_CREATE_BR_TABLE(at_plus_ciprxget)
+#ifdef SIM800
+	SSPBR("1\r\nOK\r\n", cmd_ok,  &rootCmdParser),
+#else
 	SSPBR("1\r\n\r\nOK\r\n", cmd_ok,  &rootCmdParser),
+#endif
 	SSPBR("2,",              NULL,    &at_plus_ciprxget_2),
 	SSPBR("\r\n",            NULL,    &rootCmdParser),
 SSP_END_BR_TABLE
