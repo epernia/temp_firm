@@ -56,7 +56,7 @@
 static uint8_t dIns[NUM_DIN_SIGNALS];
 static uint8_t dInsSt[NUM_DIN_SIGNALS];
 static uint8_t clk = 0;
-static int i = 0;
+static int i = NUM_DIN_SIGNALS -1;
 
 
 /* ----------------------- Local function prototypes ----------------------- */
@@ -86,13 +86,13 @@ dIn_scan(void)
     {
     	ClkPin_Set(0); clk = 0;
 
-        if(i == NUM_DIN_SIGNALS)
-        	i=0;
-
         if(i == 0)
-            Parallel_load();
+        {
+        	i = NUM_DIN_SIGNALS;
+        	Parallel_load();
+        }
 
-
+    	i--;
     }
     else
     {
@@ -100,7 +100,6 @@ dIn_scan(void)
         din = (dIns[i] << 1) | SerInPin_Read();
     	ClkPin_Set(1); clk = 1;
 
-        //din = (dIns[i] << 1) | SerInPin_Read();
 
         if((dIns[i] == DEBOUNCE_CHG) && (din == DEBOUNCE_MASK) && (dInsSt[i] == 0))
         {
@@ -114,14 +113,9 @@ dIn_scan(void)
         }
 
         dIns[i] = din;
-    	i++;
+
     }
 
-//    for(i=0; i < NUM_DIN_SIGNALS; ++i)
-//    {
-
-
- //   }
 }
 
 /* ------------------------------ End of file ------------------------------ */

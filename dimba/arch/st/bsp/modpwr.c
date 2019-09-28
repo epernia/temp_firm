@@ -26,7 +26,7 @@
 //TODO pueden estar invertidos los pines de DTR y Power
 #define PwrKey_init()       //gpioConfig(S800_DTR_GPIO_PORT, S800_DTR_PIN, GPIO_MODE_OUTPUT_PP)
 #define PwrKey(b)           //GPIO_WritePin( S800_DTR_GPIO_PORT, S800_DTR_PIN, b)
-#define Power_init()        gpioConfig(S800_PW_GPIO_PORT, S800_PW_PIN, GPIO_MODE_OUTPUT_PP)
+#define Power_init()        gpioConfig(S800_PW_GPIO_PORT, S800_PW_PIN, GPIO_MODE_OUTPUT_OD)
 #define Power(b)            GPIO_WritePin( S800_PW_GPIO_PORT, S800_PW_PIN, !b)
 
 #define modPwr_toggle() \

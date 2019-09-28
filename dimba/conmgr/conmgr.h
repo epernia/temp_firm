@@ -44,9 +44,14 @@ extern "C" {
 #define MAX_SYNC_RETRY      10
 
 /**
- * Specifies the time before starts sending commands.
+ * Specifies the time after registration.
  */
-#define INIT_DELAY     RKH_TIME_MS(10)
+#define INIT_REG_DELAY     RKH_TIME_MS(50)
+
+/**
+ * Specifies the time after *PSUTTZ arrives.
+ */
+#define CLK_DELAY     RKH_TIME_MS(5000)
 
 
 /**
@@ -147,7 +152,7 @@ extern "C" {
 #define TUENTI_APN_PASS       	"internet"
 
 /* .................................. SIM PIN .............................. */
-#define SIM_PIN_NUMBER          9474
+#define SIM_PIN_NUMBER          1234//9474
 
 /* ................................. Server ................................ */
 #define MOSQUITTO_SERVER        "test.mosquitto.org"

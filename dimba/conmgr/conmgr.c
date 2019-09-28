@@ -36,12 +36,12 @@
 typedef struct ConMgr ConMgr;
 
 /* ................... Declares states and pseudostates .................... */
-RKH_DCLR_BASIC_STATE ConMgr_inactive, ConMgr_sync, ConMgr_InitDelay,
+RKH_DCLR_BASIC_STATE ConMgr_inactive, ConMgr_sync, ConMgr_InitReg,
                 ConMgr_init, ConMgr_pin, ConMgr_setPin, ConMgr_enableNetTime,
                 ConMgr_getImei, ConMgr_cipShutdown, ConMgr_setManualGet,
                 ConMgr_waitReg, ConMgr_unregistered, ConMgr_failure,
                 ConMgr_waitNetClockSync, ConMgr_localTime, ConMgr_getOper,
-                ConMgr_setAPN, ConMgr_enableGPRS,
+                ConMgr_setAPN, ConMgr_enableGPRS, ConMgr_ClkDelay,
                 ConMgr_checkIP, ConMgr_waitRetryConfig, ConMgr_waitingServer,
                 ConMgr_idle, ConMgr_getStatus, ConMgr_waitPrompt, ConMgr_waitOk,
                 ConMgr_receiving, ConMgr_restarting, ConMgr_wReopen,
@@ -89,7 +89,8 @@ static void tryGetStatus(ConMgr *const me, RKH_EVT_T *pe);
 /* ......................... Declares entry actions ........................ */
 static void sendSync(ConMgr *const me);
 static void sendInit(ConMgr *const me);
-static void InitDelayEntry(ConMgr *const me);
+static void InitRegEntry(ConMgr *const me);
+static void ClkDelayEntry(ConMgr *const me);
 static void checkPin(ConMgr *const me);
 static void setPin(ConMgr *const me);
 static void netTimeEnable(ConMgr *const me);
@@ -114,7 +115,8 @@ static void idleEntry(ConMgr *const me);
 
 /* ......................... Declares exit actions ......................... */
 static void unregExit(ConMgr *const me);
-static void InitDelayExit(ConMgr *const me);
+static void InitRegExit(ConMgr *const me);
+static void ClkDelayExit(ConMgr *const me);
 static void regExit(ConMgr *const me);
 static void waitNetClockSyncExit(ConMgr *const me);
 static void wReopenExit(ConMgr *const me);
@@ -176,7 +178,12 @@ RKH_CREATE_BASIC_STATE(ConMgr_waitNetClockSync,
                             &ConMgr_initialize, NULL);
 RKH_CREATE_TRANS_TABLE(ConMgr_waitNetClockSync)
     RKH_TRREG(evTimeout,       NULL, NULL, &ConMgr_pin),
-    RKH_TRREG(evNetClockSync,  NULL, localTimeGet, &ConMgr_localTime),
+    RKH_TRREG(evNetClockSync,  NULL, NULL , &ConMgr_ClkDelay),
+RKH_END_TRANS_TABLE
+
+RKH_CREATE_BASIC_STATE(ConMgr_ClkDelay, ClkDelayEntry, ClkDelayExit, &ConMgr_initialize, NULL);
+RKH_CREATE_TRANS_TABLE(ConMgr_ClkDelay)
+    RKH_TRREG(evTimeout, NULL,  localTimeGet, &ConMgr_localTime),
 RKH_END_TRANS_TABLE
 
 RKH_CREATE_BASIC_STATE(ConMgr_localTime, NULL, NULL, &ConMgr_initialize, NULL);
@@ -226,7 +233,7 @@ RKH_CREATE_TRANS_TABLE(ConMgr_setManualGet)
 RKH_END_TRANS_TABLE
 
 RKH_CREATE_COMP_REGION_STATE(ConMgr_registered, regEntry, regExit, &ConMgr_active, 
-                             &ConMgr_InitDelay, NULL,
+                             &ConMgr_InitReg, NULL,
                              RKH_NO_HISTORY, NULL, NULL, NULL, NULL);
 RKH_CREATE_TRANS_TABLE(ConMgr_registered)
     RKH_TRREG(evNoReg, NULL, NULL,   &ConMgr_unregistered),
@@ -246,8 +253,8 @@ RKH_CREATE_TRANS_TABLE(ConMgr_failure)
     RKH_TRREG(evTimeout, NULL,  NULL, &ConMgr_active),
 RKH_END_TRANS_TABLE
 
-RKH_CREATE_BASIC_STATE(ConMgr_InitDelay, InitDelayEntry, InitDelayExit, &ConMgr_registered, NULL);
-RKH_CREATE_TRANS_TABLE(ConMgr_InitDelay)
+RKH_CREATE_BASIC_STATE(ConMgr_InitReg, InitRegEntry, InitRegExit, &ConMgr_registered, NULL);
+RKH_CREATE_TRANS_TABLE(ConMgr_InitReg)
     RKH_TRREG(evTimeout, NULL,  NULL, &ConMgr_getOper),
 RKH_END_TRANS_TABLE
 
@@ -510,7 +517,8 @@ init(ConMgr *const me, RKH_EVT_T *pe)
     RKH_TR_FWK_STATE(me, &ConMgr_sync);
     RKH_TR_FWK_STATE(me, &ConMgr_checkSyncTry);
 	RKH_TR_FWK_STATE(me, &ConMgr_init);
-	RKH_TR_FWK_STATE(me, &ConMgr_InitDelay);
+	RKH_TR_FWK_STATE(me, &ConMgr_ClkDelay);
+	RKH_TR_FWK_STATE(me, &ConMgr_InitReg);
     RKH_TR_FWK_STATE(me, &ConMgr_pin);
     RKH_TR_FWK_STATE(me, &ConMgr_setPin);
     RKH_TR_FWK_STATE(me, &ConMgr_enableNetTime);
@@ -923,10 +931,17 @@ failureEntry(ConMgr *const me)
 }
 
 static void
-InitDelayEntry(ConMgr *const me)
+InitRegEntry(ConMgr *const me)
 {
     RKH_SET_STATIC_EVENT(&e_tout, evTimeout);
-    RKH_TMR_ONESHOT(&me->timer, RKH_UPCAST(RKH_SMA_T, me), INIT_DELAY);
+    RKH_TMR_ONESHOT(&me->timer, RKH_UPCAST(RKH_SMA_T, me), INIT_REG_DELAY);
+}
+
+static void
+ClkDelayEntry(ConMgr *const me)
+{
+    RKH_SET_STATIC_EVENT(&e_tout, evTimeout);
+    RKH_TMR_ONESHOT(&me->timer, RKH_UPCAST(RKH_SMA_T, me), CLK_DELAY);
 }
 
 static void
@@ -1069,13 +1084,20 @@ failureExit(ConMgr *const me)
 }
 
 static void
-InitDelayExit(ConMgr *const me)
+ClkDelayExit(ConMgr *const me)
 {
     (void)me;
 
     rkh_tmr_stop(&me->timer);
 }
 
+static void
+InitRegExit(ConMgr *const me)
+{
+    (void)me;
+
+    rkh_tmr_stop(&me->timer);
+}
 static void
 wReopenExit(ConMgr *const me)
 {
